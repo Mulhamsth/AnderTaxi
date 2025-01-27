@@ -1,0 +1,54 @@
+﻿name: andertaxi
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    ports:
+      - 5672:5672
+      - 15672:15672
+    environment:
+      - RABBITMQ_DEFAULT_USER=$RMQ_User
+      - RABBITMQ_DEFAULT_PASS=$RMQ_Pass
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+  
+  closestdriverservice:
+    image: closestdriverservice
+    build:
+      context: .
+      dockerfile: ClosestDriverService/Dockerfile
+    depends_on:
+      - rabbitmq 
+
+  driverservice:
+    image: driverservice
+    build:
+      context: .
+      dockerfile: DriverService/Dockerfile
+
+  invoiceservice:
+    image: invoiceservice
+    build:
+      context: .
+      dockerfile: InvoiceService/Dockerfile
+
+  log:
+    image: log
+    build:
+      context: .
+      dockerfile: Log/Dockerfile
+
+  passengerservice:
+    image: passengerservice
+    build:
+      context: .
+      dockerfile: PassengerService/Dockerfile
+      
+volumes:
+  rabbitmq_data:
