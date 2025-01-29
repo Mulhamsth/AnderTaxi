@@ -12,43 +12,81 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: rabbitmq-diagnostics -q ping
+      test: rabbitmq-diagnostics -q status
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 10s
+    
   
   closestdriverservice:
     image: closestdriverservice
     build:
       context: .
       dockerfile: ClosestDriverService/Dockerfile
+    environment:
+      - RABBITMQ_USERNAME=$RMQ_User
+      - RABBITMQ_PASSWORD=$RMQ_Pass
     depends_on:
-      - rabbitmq 
+      rabbitmq:
+        condition: service_healthy
+        restart: true
 
   driverservice:
     image: driverservice
     build:
       context: .
       dockerfile: DriverService/Dockerfile
-
+    ports:
+      - 5001:8080
+    environment:
+      - RABBITMQ_USERNAME=$RMQ_User
+      - RABBITMQ_PASSWORD=$RMQ_Pass
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+        restart: true
+  
   invoiceservice:
     image: invoiceservice
     build:
       context: .
       dockerfile: InvoiceService/Dockerfile
+    environment:
+      - RABBITMQ_USERNAME=$RMQ_User
+      - RABBITMQ_PASSWORD=$RMQ_Pass
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+        restart: true
 
   log:
     image: log
     build:
       context: .
       dockerfile: Log/Dockerfile
-
+    environment:
+      - RABBITMQ_USERNAME=$RMQ_User
+      - RABBITMQ_PASSWORD=$RMQ_Pass
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+        restart: true
+  
   passengerservice:
     image: passengerservice
     build:
       context: .
       dockerfile: PassengerService/Dockerfile
+    ports:
+      - 5000:8080 
+    environment:
+      - RABBITMQ_USERNAME=$RMQ_User
+      - RABBITMQ_PASSWORD=$RMQ_Pass
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+        restart: true
       
 volumes:
   rabbitmq_data:

@@ -1,12 +1,11 @@
 ﻿<Project>
-    <PropertyGroup>
-        <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <GlobalPackageReference Include="RabbitMQ" Version="3.6.2" />
-        <GlobalPackageReference Include="CloudNative.CloudEvents.AspNetCore" Version="2.8.0" />
-       <!-- <PackageVersion Include="RabbitMQ.Client" Version="7.0.0" /> -->
-    </ItemGroup>
-    
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="CloudNative.CloudEvents" Version="2.8.0" />
+    <PackageVersion Include="CloudNative.CloudEvents.SystemTextJson" Version="2.8.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.1" />
+    <PackageVersion Include="RabbitMQ.Client" Version="7.0.0" />
+  </ItemGroup>
 </Project>

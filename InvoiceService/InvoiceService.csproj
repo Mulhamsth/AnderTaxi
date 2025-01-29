@@ -14,4 +14,17 @@
       </Content>
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Remove="RabbitMQ" />
+      <PackageReference Remove="RabbitMQ" />
+      <PackageReference Include="CloudNative.CloudEvents" />
+      <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
+      <PackageReference Include="RabbitMQ.Client" />
+      <PackageReference Remove="RabbitMQ" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Model\Model.csproj" />
+    </ItemGroup>
+
 </Project>
