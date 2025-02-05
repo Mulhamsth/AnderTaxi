@@ -18,14 +18,6 @@ public class RabbitMqBackgroundService : BackgroundService
     
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var _channel = await _rabbitMqManager._connection.CreateChannelAsync(cancellationToken: stoppingToken);
-        var consumer = new AsyncEventingBasicConsumer(_channel);
-        consumer.ReceivedAsync += async (model, ea) =>
-        {
-            byte[] body = ea.Body.ToArray();
-            var message = Encoding.UTF8.GetString(body);
-            Console.WriteLine($" [x] {message}");
-        };
-        await _channel.BasicConsumeAsync(_queueName, autoAck: true, consumer: consumer);
+        _rabbitMqManager.ConsumeMessage(_queueName, async (message) => {Console.WriteLine(message); });
     }
 }

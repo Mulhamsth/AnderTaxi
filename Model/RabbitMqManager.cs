@@ -12,36 +12,60 @@ public class RabbitMqManager
     private RabbitMqManager()
     {
     }
-    
-    public IConnection _connection { get; private set; }
+
+    public string QueueName { get; set; }
+    public IChannel Channel { get; set; }
 
     public static async Task<RabbitMqManager> Initialize()
     {
         var instance = new RabbitMqManager();
         var credentials = new {username = Environment.GetEnvironmentVariable("RABBITMQ_USERNAME"), password = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") };
         var factory = new ConnectionFactory() { HostName = "rabbitmq", UserName = credentials.username, Password = credentials.password };
-        instance._connection = await factory.CreateConnectionAsync();
+        var _connection = await factory.CreateConnectionAsync();
+        instance.Channel = await _connection.CreateChannelAsync();
         return instance;
     }
     
-    public async Task PublishMessage(string routingkey, string message)
+    
+    public async Task PublishMessage(string routingkey, object? data, string fromQueue = "")
     {
-        var body = Encoding.UTF8.GetBytes(message);
-        var _channel = await _connection.CreateChannelAsync();
-        await _channel.BasicPublishAsync(exchange: "taxi.topic", routingKey: routingkey, body: body);
+        if (fromQueue == "")
+        {
+            fromQueue = QueueName;
+        }
+        
+        CloudEvent cloudEvent = new CloudEvent
+        {
+            Id = Guid.NewGuid().ToString(),
+            Type = data?.GetType().Name,
+            Source = new Uri($"http://{fromQueue}"),
+            Time = DateTimeOffset.UtcNow,
+            DataContentType = "application/json",
+            Data = data
+        };
+
+        CloudEventFormatter formatter = new JsonEventFormatter();
+        var messageBody = formatter.EncodeStructuredModeMessage(cloudEvent, out var contentType);
+        
+        await Channel.BasicPublishAsync(exchange: "taxi.topic", routingKey: routingkey, body: messageBody);
+        Console.WriteLine(" [x] Sent {0}", data);
+    }
+    
+    public async Task PublishMessage(string routingkey,  ReadOnlyMemory<byte> message)
+    {
+        await Channel.BasicPublishAsync(exchange: "taxi.topic", routingKey: routingkey, body: message);
         Console.WriteLine(" [x] Sent {0}", message);
     }
     
     public async Task ConsumeMessage(string queueName, Func<string, Task> action)
     {
-        var _channel = await _connection.CreateChannelAsync();
-        var consumer = new AsyncEventingBasicConsumer(_channel);
+        var consumer = new AsyncEventingBasicConsumer(Channel);
         consumer.ReceivedAsync += async (model, ea) =>
         {
             byte[] body = ea.Body.ToArray();
             var message = Encoding.UTF8.GetString(body);
             await action(message);
         };
-        await _channel.BasicConsumeAsync(queueName, autoAck: true, consumer: consumer);
+        await Channel.BasicConsumeAsync(queueName, autoAck: true, consumer: consumer);
     }
 }
