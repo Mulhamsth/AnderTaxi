@@ -16,18 +16,24 @@ public class RabbitMqManager
 
     public string QueueName { get; set; }
     public IChannel Channel { get; set; }
+    private static RabbitMqManager _instance = null;
 
     public static async Task<RabbitMqManager> Initialize()
     {
-        var instance = new RabbitMqManager();
+        if (_instance != null)
+        {
+            return _instance;
+        }
+        
+        _instance = new RabbitMqManager();
         var credentials = new {username = Environment.GetEnvironmentVariable("RABBITMQ_USERNAME"), password = Environment.GetEnvironmentVariable("RABBITMQ_PASSWORD") };
         var factory = new ConnectionFactory() { HostName = "rabbitmq", UserName = credentials.username, Password = credentials.password };
         var _connection = await factory.CreateConnectionAsync();
-        instance.Channel = await _connection.CreateChannelAsync();
-        return instance;
+        _instance.Channel = await _connection.CreateChannelAsync();
+        return _instance;
     }
     
-    public async Task PublishMessage(string routingkey, object? data, string fromQueue = "")
+    public async Task PublishMessage(string routingkey, string messageType, object? data, string fromQueue = "")
     {
         if (fromQueue == "")
         {
@@ -37,7 +43,7 @@ public class RabbitMqManager
         CloudEvent cloudEvent = new CloudEvent
         {
             Id = Guid.NewGuid().ToString(),
-            Type = data?.GetType().Name,
+            Type = messageType,
             Source = new Uri($"http://{fromQueue}"),
             Time = DateTimeOffset.UtcNow,
             DataContentType = "application/json",
@@ -64,25 +70,42 @@ public class RabbitMqManager
     }
     
     // Handling Generic Type Messages
-   public async Task ConsumeMessage<T>(string queueName, Func<T, Task> action)
-   {
-       var consumer = new AsyncEventingBasicConsumer(Channel);
-       consumer.ReceivedAsync += async (model, ea) =>
-       {
-           CloudEventFormatter formatter = new JsonEventFormatter();
-           var cloudEvent = formatter.DecodeStructuredModeMessage(ea.Body, null, null);
-           var messageBody = cloudEvent.Data as JsonElement?;
-           if (messageBody.HasValue)
-           {
-               var message = messageBody.Value.GetRawText();
-               var data = JsonSerializer.Deserialize<T>(message);
-               if (data != null)
-               {
-                   await action(data);
-               }
-           }
-       };
-       await Channel.BasicConsumeAsync(queueName, autoAck: true, consumer: consumer);
-   } 
+    public async Task ConsumeCloudEventMessage(string queueName, Func<CloudEvent, Task> action)
+    {
+        var consumer = new AsyncEventingBasicConsumer(Channel);
+        
+        //returning the cloud event to handle it as needed
+        consumer.ReceivedAsync += async (model, ea) =>
+        {
+            try
+            {
+                // Decode the CloudEvent from the message body.
+                var formatter = new JsonEventFormatter();
+                var cloudEvent = formatter.DecodeStructuredModeMessage(ea.Body, null, null);
+                
+                await action(cloudEvent);
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine($"Failed to process message from queue {QueueName}");
+            }
+        };
+
+        await Channel.BasicConsumeAsync(queueName, autoAck: true, consumer: consumer);
+    }
+
+    public async Task<T> DeserializeCloudEventMessage<T>(CloudEvent cloudEvent)
+    {
+        if (cloudEvent.Data is JsonElement jsonData)
+        {
+            // Deserialize the inner payload. (the actual data)
+            T data = JsonSerializer.Deserialize<T>(jsonData.GetRawText());
+            if (data != null)
+            {
+                return data;
+            }
+        } 
+        return default;
+    }
     
 }

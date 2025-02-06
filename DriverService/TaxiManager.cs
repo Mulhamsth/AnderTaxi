@@ -8,6 +8,7 @@ public class TaxiManager : ITaxiManager
     private readonly RabbitMqManager _rmq;
     // Maps taxi IDs to their CancellationTokenSources
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _activeTaxis = new();
+    private readonly ConcurrentDictionary<string, Taxi> _taxis = new();
 
     public TaxiManager(RabbitMqManager rmq)
     {
@@ -24,7 +25,9 @@ public class TaxiManager : ITaxiManager
             throw new Exception("Failed to add taxi instance.");
 
         Random rnd = new Random();
-        var taxi = new Taxi(_rmq, taxiId){X = rnd.Next(0, 50), Y = rnd.Next(0,70)};
+        var taxi = new Taxi(_rmq, taxiId){Location = new Location(rnd.Next(0, 50), rnd.Next(0,70)), State = ETaxiState.Available};
+        _taxis[taxiId] = taxi;
+        
         // Fire-and-forget the taxi's background loop.
         _ = Task.Run(() => taxi.RunAsync(cts.Token), cts.Token);
         return taxiId;
@@ -37,6 +40,7 @@ public class TaxiManager : ITaxiManager
         {
             cts.Cancel();
             cts.Dispose();
+            _taxis.TryRemove(taxiId, out _);
             return Task.FromResult(true);
         }
         return Task.FromResult(false);
@@ -44,4 +48,13 @@ public class TaxiManager : ITaxiManager
 
     public IEnumerable<string> GetActiveTaxiIds() => _activeTaxis.Keys;
     
+    public async Task HandlePickupRequestAsync(PickupRequest pickupRequest)
+    {
+        if (_taxis.TryGetValue(pickupRequest.DriverId, out var taxi))
+        {
+            taxi.State = ETaxiState.Unavailable;
+            var cts = _activeTaxis[pickupRequest.DriverId];
+            await taxi.PickupPassengerAsync(pickupRequest);
+        }
+    }
 }

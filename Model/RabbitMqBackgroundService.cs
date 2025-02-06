@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Text;
+using CloudNative.CloudEvents;
 using Microsoft.Extensions.Hosting;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -9,15 +10,17 @@ public class RabbitMqBackgroundService : BackgroundService
 {
     private readonly RabbitMqManager _rabbitMqManager;
     private string _queueName;
+    private Func<CloudEvent, Task> action;
     
-    public RabbitMqBackgroundService(RabbitMqManager rabbitMqManager, string queueName)
+    public RabbitMqBackgroundService(RabbitMqManager rabbitMqManager, string queueName, Func<CloudEvent, Task> action)
     {
         _rabbitMqManager = rabbitMqManager;
         _queueName = queueName;
+        this.action = action;
     }
     
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _rabbitMqManager.ConsumeMessage(_queueName, async (message) => {Console.WriteLine(message); });
+        await _rabbitMqManager.ConsumeCloudEventMessage(_queueName, action);
     }
 }
