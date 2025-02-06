@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.Json;
 using CloudNative.CloudEvents;
 using CloudNative.CloudEvents.Http;
 using CloudNative.CloudEvents.SystemTextJson;
@@ -26,7 +27,6 @@ public class RabbitMqManager
         return instance;
     }
     
-    
     public async Task PublishMessage(string routingkey, object? data, string fromQueue = "")
     {
         if (fromQueue == "")
@@ -51,12 +51,6 @@ public class RabbitMqManager
         Console.WriteLine(" [x] Sent {0}", data);
     }
     
-    public async Task PublishMessage(string routingkey,  ReadOnlyMemory<byte> message)
-    {
-        await Channel.BasicPublishAsync(exchange: "taxi.topic", routingKey: routingkey, body: message);
-        Console.WriteLine(" [x] Sent {0}", message);
-    }
-    
     public async Task ConsumeMessage(string queueName, Func<string, Task> action)
     {
         var consumer = new AsyncEventingBasicConsumer(Channel);
@@ -68,4 +62,27 @@ public class RabbitMqManager
         };
         await Channel.BasicConsumeAsync(queueName, autoAck: true, consumer: consumer);
     }
+    
+    // Handling Generic Type Messages
+   public async Task ConsumeMessage<T>(string queueName, Func<T, Task> action)
+   {
+       var consumer = new AsyncEventingBasicConsumer(Channel);
+       consumer.ReceivedAsync += async (model, ea) =>
+       {
+           CloudEventFormatter formatter = new JsonEventFormatter();
+           var cloudEvent = formatter.DecodeStructuredModeMessage(ea.Body, null, null);
+           var messageBody = cloudEvent.Data as JsonElement?;
+           if (messageBody.HasValue)
+           {
+               var message = messageBody.Value.GetRawText();
+               var data = JsonSerializer.Deserialize<T>(message);
+               if (data != null)
+               {
+                   await action(data);
+               }
+           }
+       };
+       await Channel.BasicConsumeAsync(queueName, autoAck: true, consumer: consumer);
+   } 
+    
 }

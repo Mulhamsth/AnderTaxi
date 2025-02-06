@@ -15,14 +15,14 @@ class Program
         };
 
         var manager = await RabbitMqManager.Initialize();
-        await manager.ConsumeMessage("distancelogic", OutputMessage);
+        await manager.ConsumeMessage<TaxiLocation>("distancelogic", OutputMessage);
 
 
         _quitEvent.WaitOne();
     }
-    private static Task OutputMessage(string message)
+    private static Task OutputMessage(TaxiLocation location)
     {
-        Console.WriteLine($" [x] {message}");
+        Console.WriteLine($" [x] {location.Id} is at ({location.X}, {location.Y})");
         return Task.CompletedTask;
     }
 }
