@@ -46,9 +46,4 @@ class Program
         var manager = await RabbitMqManager.Initialize();
         await manager.PublishMessage("Passenger", "invoice.invoice", invoice);
     }
-    private static Task OutputMessage(string message)
-    {
-        Console.WriteLine($" [x] {message}");
-        return Task.CompletedTask;
-    }
 }

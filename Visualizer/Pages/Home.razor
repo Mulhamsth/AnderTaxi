@@ -1,0 +1,83 @@
+﻿@page "/"
+@using System.Net
+@using CloudNative.CloudEvents
+@using Model
+@inject RabbitMqManager RmqManager
+@inject HttpClient httpClient
+
+<div class="grid">
+    @for (int y = 0; y < 50; y++)
+    {
+        <div class="row">
+            @for (int x = 0; x < 70; x++)
+            {
+                <div class="cell">@GetCellContent(x, y)</div>
+            }
+        </div>
+    }
+</div>
+
+<button @onclick="CreateTaxi">Create Taxi</button>
+<button @onclick="GetPassenger">Get Passenger</button>
+
+
+@code {
+    private char[,] grid = new char[50, 70];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RmqManager.ConsumeCloudEventMessage("visualizer", HandleCloudEventMessage);
+    }
+
+    private async Task HandleCloudEventMessage(CloudEvent cloudEvent)
+    {
+        if (cloudEvent.Type == "passenger.location")
+        {
+            var passengerRequest = await RmqManager.DeserializeCloudEventMessage<PassengerRequest>(cloudEvent);
+            UpdateGrid(passengerRequest.Location, 'p');
+        }
+        else if (cloudEvent.Type == "driver.location")
+        {
+            var driverRequest = await RmqManager.DeserializeCloudEventMessage<TaxiDto>(cloudEvent);
+            UpdateGrid(driverRequest.Location, 'd');
+        }
+
+        StateHasChanged();
+    }
+
+    private void UpdateGrid(Location location, char symbol)
+    {
+        grid[location.Y, location.X] = symbol;
+    }
+
+    private char GetCellContent(int x, int y)
+    {
+        return grid[y, x];
+    }
+    private async Task CreateTaxi()
+    {
+        var response = await httpClient.PostAsync("http://driverservice:8080/taxi", null);
+        if (response.IsSuccessStatusCode)
+        {
+            Console.WriteLine("Taxi created successfully.");
+        }
+        else
+        {
+            Console.WriteLine("Failed to create taxi.");
+        }
+    }
+
+    private async Task GetPassenger()
+    {
+        var response = await httpClient.GetAsync("http://passengerservice:8080/");
+        if (response.IsSuccessStatusCode)
+        {
+            Console.WriteLine("Passenger retrieved successfully.");
+        }
+        else
+        {
+            Console.WriteLine("Failed to retrieve passenger.");
+        }
+    }
+    
+}

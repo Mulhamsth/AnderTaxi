@@ -36,6 +36,7 @@ public class Taxi
             await MoveToLocationAsync(pickupRequest.PickupAt, CancellationToken.None);
             State = ETaxiState.OnRouteToDestination;
             await MoveToLocationAsync(pickupRequest.PickupTo, CancellationToken.None);
+            await SendInvoiceAsync(pickupRequest);
         }
         public async Task MoveToLocationAsync(Location targetLocation, CancellationToken token)
         {

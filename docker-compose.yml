@@ -17,7 +17,16 @@ services:
       timeout: 10s
       retries: 5
       start_period: 10s
-    
+      
+  rabbitmqqueuegenerator:
+    image: rabbitmqqueuegenerator
+    build:
+      context: .
+      dockerfile: RabbitMqQueueGenerator/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+        restart: true
   
   closestdriverservice:
     image: closestdriverservice
@@ -87,6 +96,24 @@ services:
       rabbitmq:
         condition: service_healthy
         restart: true
+        
+  visualizer:
+    image: visualizer
+    build:
+      context: .
+      dockerfile: Visualizer/Dockerfile
+    ports:
+      - 5003:8080
+    environment:
+      - RABBITMQ_USERNAME=$RMQ_User
+      - RABBITMQ_PASSWORD=$RMQ_Pass
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+        restart: true
+        
       
 volumes:
   rabbitmq_data:
+
+

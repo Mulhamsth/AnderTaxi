@@ -16,7 +16,8 @@ rmq.QueueName = "passenger";
 
 builder.Services.AddSingleton<RabbitMqManager>(rmq);
 builder.Services.AddHostedService<RabbitMqBackgroundService>(rbs => 
-    new RabbitMqBackgroundService(rbs.GetRequiredService<RabbitMqManager>(),"passenger", HandlingCloudEventMessage));
+    new RabbitMqBackgroundService(rbs.GetRequiredService<RabbitMqManager>(),"passenger", 
+        (cloudEvent) => HandlingCloudEventMessage(cloudEvent, rbs.GetRequiredService<RabbitMqManager>())));
 
 var app = builder.Build();
 
@@ -32,11 +33,17 @@ app.MapGet("/", async (RabbitMqManager rmq) => await rmq.PublishMessage(
 
 app.Run();
 
-static async Task HandlingCloudEventMessage(CloudEvent cloudEvent)
+static async Task HandlingCloudEventMessage(CloudEvent cloudEvent, RabbitMqManager rmq)
 {
     if(cloudEvent.Type == "driver.message")
     {
         Console.WriteLine(" [x] Received driver message");
+    }
+
+    if (cloudEvent.Type == "invoice.invoice")
+    {
+        var invoice = await rmq.DeserializeCloudEventMessage<Invoice>(cloudEvent);
+        Console.WriteLine(" [x] Received invoice with amount: " + cloudEvent.Data);
     }
     else
     {
