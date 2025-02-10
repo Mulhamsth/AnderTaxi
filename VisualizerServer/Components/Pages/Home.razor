@@ -1,0 +1,201 @@
+﻿@page "/"
+@using System.Net
+@using CloudNative.CloudEvents
+@using Model
+@inject RabbitMqManager RmqManager
+@inject HttpClient httpClient
+@rendermode InteractiveServer
+
+<div class="controls">
+    <button class="btn btn-primary" @onclick="CreateTaxi">Create Taxi</button>
+    <button class="btn btn-success" @onclick="GetPassenger">Get Passenger</button>
+</div>
+
+<div class="grid-container">
+    <div class="grid">
+        @for (int y = 0; y < 30; y++)
+        {
+            <div class="row">
+                @for (int x = 0; x < 30; x++)
+                {
+                    <div class="cell @GetCellClass(x, y)" title="@($"Cell ({x}, {y})")">
+                        @GetCellContent(x, y)
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private char[,] grid = new char[50, 70];
+    private System.Threading.Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe to incoming messages
+        await RmqManager.ConsumeCloudEventMessage("visualizer", HandleCloudEventMessage);
+
+        // Start a timer that triggers every 2 seconds to refresh the UI.
+        _timer = new System.Threading.Timer(async _ =>
+        {
+            // Invoke StateHasChanged on the correct synchronization context
+            await InvokeAsync(StateHasChanged);
+        },
+        null, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+    }
+
+    private async Task HandleCloudEventMessage(CloudEvent cloudEvent)
+    {
+        if (cloudEvent.Type == "passenger.location")
+        {
+            var passengerRequest = await RmqManager.DeserializeCloudEventMessage<PassengerRequest>(cloudEvent);
+            UpdateGrid(passengerRequest.Location, 'p');
+        }
+        else if (cloudEvent.Type == "driver.location")
+        {
+            var driverRequest = await RmqManager.DeserializeCloudEventMessage<TaxiDto>(cloudEvent);
+            UpdateGrid(driverRequest.Location, 'd');
+        }
+
+        // Optional: You can call StateHasChanged() here too if you want immediate refresh.
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateGrid(Location location, char symbol)
+    {
+        grid[location.Y, location.X] = symbol;
+    }
+
+    private char GetCellContent(int x, int y)
+    {
+        return grid[y, x];
+    }
+
+    private async Task CreateTaxi()
+    {
+        var response = await httpClient.PostAsync("http://driverservice:8080/taxi", null);
+        if (response.IsSuccessStatusCode)
+        {
+            Console.WriteLine("Taxi created successfully.");
+        }
+        else
+        {
+            Console.WriteLine("Failed to create taxi.");
+        }
+    }
+
+    private async Task GetPassenger()
+    {
+        var response = await httpClient.GetAsync("http://passengerservice:8080/");
+        if (response.IsSuccessStatusCode)
+        {
+            Console.WriteLine("Passenger retrieved successfully.");
+        }
+        else
+        {
+            Console.WriteLine("Failed to retrieve passenger.");
+        }
+    }
+
+    private string GetCellClass(int x, int y)
+    {
+        return grid[y, x] switch
+        {
+            'd' => "driver",
+            'p' => "passenger",
+            _   => "empty"
+        };
+    }
+
+    // Dispose of the timer when the component is disposed.
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}
+<style>
+    .controls {
+        margin-bottom: 1rem;
+        display: flex;
+        gap: 1rem;
+        padding: 0.5rem;
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+
+    .grid-container {
+        max-width: 100%;
+        overflow: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 0.5rem;
+        background: white;
+    }
+
+    .grid {
+        display: inline-block;
+        min-width: 100%;
+    }
+
+    .row {
+        display: flex;
+        flex-wrap: nowrap;
+        height: 20px;
+    }
+
+    .cell {
+        width: 20px;
+        min-width: 20px;
+        height: 20px;
+        border: 1px solid #f0f0f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: bold;
+        transition: background-color 0.2s;
+    }
+
+    .cell.driver {
+        background-color: #4CAF50;
+        color: white;
+        border-color: #388E3C;
+    }
+
+    .cell.passenger {
+        background-color: #F44336;
+        color: white;
+        border-color: #D32F2F;
+    }
+
+    .cell.empty {
+        background-color: #f8f9fa;
+    }
+
+    .btn {
+        padding: 0.375rem 0.75rem;
+        border-radius: 4px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: filter 0.2s;
+    }
+
+    .btn:hover {
+        filter: brightness(90%);
+    }
+
+    .btn:active {
+        filter: brightness(80%);
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .btn-success {
+        background-color: #28a745;
+        color: white;
+    }
+</style>

@@ -3,6 +3,7 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     hostname: rabbitmq
+    container_name: rabbitmq
     ports:
       - 5672:5672
       - 15672:15672
@@ -17,22 +18,24 @@ services:
       timeout: 10s
       retries: 5
       start_period: 10s
-      
+
   rabbitmqqueuegenerator:
     image: rabbitmqqueuegenerator
     build:
       context: .
       dockerfile: RabbitMqQueueGenerator/Dockerfile
+    container_name: rabbitmqqueuegenerator
     depends_on:
       rabbitmq:
         condition: service_healthy
         restart: true
-  
+
   closestdriverservice:
     image: closestdriverservice
     build:
       context: .
       dockerfile: ClosestDriverService/Dockerfile
+    container_name: closestdriverservice
     environment:
       - RABBITMQ_USERNAME=$RMQ_User
       - RABBITMQ_PASSWORD=$RMQ_Pass
@@ -40,12 +43,15 @@ services:
       rabbitmq:
         condition: service_healthy
         restart: true
+      rabbitmqqueuegenerator:
+        condition: service_completed_successfully
 
   driverservice:
     image: driverservice
     build:
       context: .
       dockerfile: DriverService/Dockerfile
+    container_name: driverservice
     ports:
       - 5001:8080
     environment:
@@ -55,12 +61,15 @@ services:
       rabbitmq:
         condition: service_healthy
         restart: true
-  
+      rabbitmqqueuegenerator:
+        condition: service_completed_successfully
+
   invoiceservice:
     image: invoiceservice
     build:
       context: .
       dockerfile: InvoiceService/Dockerfile
+    container_name: invoiceservice
     environment:
       - RABBITMQ_USERNAME=$RMQ_User
       - RABBITMQ_PASSWORD=$RMQ_Pass
@@ -68,12 +77,15 @@ services:
       rabbitmq:
         condition: service_healthy
         restart: true
+      rabbitmqqueuegenerator:
+        condition: service_completed_successfully
 
   log:
     image: log
     build:
       context: .
       dockerfile: Log/Dockerfile
+    container_name: log
     environment:
       - RABBITMQ_USERNAME=$RMQ_User
       - RABBITMQ_PASSWORD=$RMQ_Pass
@@ -81,14 +93,17 @@ services:
       rabbitmq:
         condition: service_healthy
         restart: true
-  
+      rabbitmqqueuegenerator:
+        condition: service_completed_successfully
+
   passengerservice:
     image: passengerservice
     build:
       context: .
       dockerfile: PassengerService/Dockerfile
+    container_name: passengerservice
     ports:
-      - 5000:8080 
+      - 5000:8080
     environment:
       - RABBITMQ_USERNAME=$RMQ_User
       - RABBITMQ_PASSWORD=$RMQ_Pass
@@ -96,12 +111,15 @@ services:
       rabbitmq:
         condition: service_healthy
         restart: true
-        
-  visualizer:
-    image: visualizer
+      rabbitmqqueuegenerator:
+        condition: service_completed_successfully
+
+  visualizerserver:
+    image: visualizerserver
     build:
       context: .
-      dockerfile: Visualizer/Dockerfile
+      dockerfile: VisualizerServer/Dockerfile
+    container_name: visualizerserver
     ports:
       - 5003:8080
     environment:
@@ -111,9 +129,8 @@ services:
       rabbitmq:
         condition: service_healthy
         restart: true
-        
-      
+      rabbitmqqueuegenerator:
+        condition: service_completed_successfully
+
 volumes:
   rabbitmq_data:
-
-

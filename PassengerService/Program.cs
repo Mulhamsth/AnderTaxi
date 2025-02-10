@@ -21,15 +21,17 @@ builder.Services.AddHostedService<RabbitMqBackgroundService>(rbs =>
 
 var app = builder.Build();
 
-app.MapGet("/", async (RabbitMqManager rmq) => await rmq.PublishMessage(
-    "distancelogic", 
-    "passenger.location", 
-    new PassengerRequest()
+app.MapGet("/", async (RabbitMqManager rmq) => 
+{
+    var random = new Random();
+    var passengerRequest = new PassengerRequest()
     {
         PassengerId = Guid.NewGuid().ToString(),
-        Location = new Location(1,2),
-        DesiredLocation = new Location(5,6)
-    }));
+        Location = new Location(random.Next(0, 31), random.Next(0, 31)),
+        DesiredLocation = new Location(random.Next(0, 31), random.Next(0, 31))
+    };
+    await rmq.PublishMessage("distancelogic", "passenger.location", passengerRequest);
+});
 
 app.Run();
 
