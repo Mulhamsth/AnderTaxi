@@ -25,7 +25,7 @@ public class TaxiManager : ITaxiManager
             throw new Exception("Failed to add taxi instance.");
 
         Random rnd = new Random();
-        var taxi = new Taxi(_rmq, taxiId){Location = new Location(rnd.Next(0, 50), rnd.Next(0,70)), State = ETaxiState.Available};
+        var taxi = new Taxi(_rmq, taxiId){Location = new Location(rnd.Next(0, 30), rnd.Next(0,30)), State = ETaxiState.Available};
         _taxis[taxiId] = taxi;
         
         // Fire-and-forget the taxi's background loop.

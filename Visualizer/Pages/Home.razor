@@ -4,12 +4,15 @@
 @using Model
 @inject RabbitMqManager RmqManager
 @inject HttpClient httpClient
+@using System.Timers
+@implements IDisposable
+
 
 <div class="grid">
-    @for (int y = 0; y < 50; y++)
+    @for (int y = 0; y < Y; y++)
     {
         <div class="row">
-            @for (int x = 0; x < 70; x++)
+            @for (int x = 0; x < X; x++)
             {
                 <div class="cell">@GetCellContent(x, y)</div>
             }
@@ -22,30 +25,41 @@
 
 
 @code {
-    private char[,] grid = new char[50, 70];
-
+    private static int X { get; set; } = 30;
+    private static int Y { get; set; } = 30;
+    private char[,] grid = new char[Y, X];
+    
+    private Timer _timer;
     protected override async Task OnInitializedAsync()
     {
         await RmqManager.ConsumeCloudEventMessage("visualizer", HandleCloudEventMessage);
+        _timer = new Timer(2000); // 2 seconds
+        _timer.Elapsed += OnTimerElapsed;
+        _timer.AutoReset = true;
+        _timer.Enabled = true;
     }
 
     private async Task HandleCloudEventMessage(CloudEvent cloudEvent)
     {
-        if (cloudEvent.Type == "passenger.location")
-        {
-            var passengerRequest = await RmqManager.DeserializeCloudEventMessage<PassengerRequest>(cloudEvent);
-            UpdateGrid(passengerRequest.Location, 'p');
-        }
-        else if (cloudEvent.Type == "driver.location")
+
+        if (cloudEvent.Type == "taxi.location")
         {
             var driverRequest = await RmqManager.DeserializeCloudEventMessage<TaxiDto>(cloudEvent);
-            UpdateGrid(driverRequest.Location, 'd');
+            Console.WriteLine($"Taxi location: {driverRequest.Location.X}, {driverRequest.Location.Y}");
+            await UpdateGrid(driverRequest.Location, 'd');
         }
-
-        StateHasChanged();
+        else if (cloudEvent.Type == "passenger.location")
+        {
+            var passengerRequest = await RmqManager.DeserializeCloudEventMessage<PassengerRequest>(cloudEvent);
+            await UpdateGrid(passengerRequest.Location, 'p');
+        }
+        else
+        {
+            Console.WriteLine("[x] Received Unknown Message" + cloudEvent.Type);
+        }
     }
 
-    private void UpdateGrid(Location location, char symbol)
+    private async Task UpdateGrid(Location location, char symbol)
     {
         grid[location.Y, location.X] = symbol;
     }
@@ -54,6 +68,7 @@
     {
         return grid[y, x];
     }
+    
     private async Task CreateTaxi()
     {
         var response = await httpClient.PostAsync("http://driverservice:8080/taxi", null);
@@ -79,5 +94,16 @@
             Console.WriteLine("Failed to retrieve passenger.");
         }
     }
-    
+
+    private void OnTimerElapsed(object sender, ElapsedEventArgs e)
+    {
+         InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+        httpClient?.Dispose();
+    }
+
 }

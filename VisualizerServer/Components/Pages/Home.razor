@@ -52,19 +52,19 @@
             var passengerRequest = await RmqManager.DeserializeCloudEventMessage<PassengerRequest>(cloudEvent);
             UpdateGrid(passengerRequest.Location, 'p');
         }
-        else if (cloudEvent.Type == "driver.location")
+        if (cloudEvent.Type == "driver.location")
         {
             var driverRequest = await RmqManager.DeserializeCloudEventMessage<TaxiDto>(cloudEvent);
-            UpdateGrid(driverRequest.Location, 'd');
+            await UpdateGrid(driverRequest.Location, 'd');
+            Console.WriteLine($"Driver location: {driverRequest.Location}");
         }
 
-        // Optional: You can call StateHasChanged() here too if you want immediate refresh.
-        await InvokeAsync(StateHasChanged);
     }
 
-    private void UpdateGrid(Location location, char symbol)
+    private async Task UpdateGrid(Location location, char symbol)
     {
         grid[location.Y, location.X] = symbol;
+        await InvokeAsync(StateHasChanged);
     }
 
     private char GetCellContent(int x, int y)
