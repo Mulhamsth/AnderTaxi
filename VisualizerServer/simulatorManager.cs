@@ -141,11 +141,8 @@ namespace VisualizerServer
         
         public void ResetGrid()
         {
-            lock (_lockgrid)
-            {
-                _taxis.Clear();
-                _passenger.Clear();
-            }
+            _taxis.Clear();
+            _passenger.Clear();
         }
 
         public void Dispose()
