@@ -1,4 +1,5 @@
 using Model;
+using VisualizerServer;
 using VisualizerServer.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +12,7 @@ var rmq = await RabbitMqManager.Initialize();
 rmq.QueueName = "visualizer";
 
 builder.Services.AddSingleton<RabbitMqManager>(rmq);
+builder.Services.AddSingleton<simulatorManager>();
 builder.Services.AddScoped<HttpClient>();
 
 var app = builder.Build();

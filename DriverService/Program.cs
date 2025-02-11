@@ -35,6 +35,15 @@ app.MapDelete("/taxi/{taxiId}", async (ITaxiManager _taxiManager, string taxiId)
     
 });
 
+app.MapDelete("/taxis", async (ITaxiManager _taxiManager) =>
+{
+    foreach (var taxiId in _taxiManager.GetActiveTaxiIds())
+    {
+        await _taxiManager.RemoveTaxiAsync(taxiId);
+    }
+    return Results.NoContent();
+});
+
 app.MapGet("/taxis", async (ITaxiManager _taxiManager) => _taxiManager.GetActiveTaxiIds());
 
 //app.MapGet("/", async (RabbitMqManager rmq) => await rmq.PublishMessage("passenger", "driver.message","This is a message from driver!"));

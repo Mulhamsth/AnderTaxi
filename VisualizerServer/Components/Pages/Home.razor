@@ -4,19 +4,22 @@
 @using Model
 @inject RabbitMqManager RmqManager
 @inject HttpClient httpClient
+@inject simulatorManager simulatorManager
 @rendermode InteractiveServer
 
 <div class="controls">
     <button class="btn btn-primary" @onclick="CreateTaxi">Create Taxi</button>
+    <button class="btn btn-danger" @onclick="DeleteTaxis">Delete All Taxis</button>
     <button class="btn btn-success" @onclick="GetPassenger">Get Passenger</button>
+    <button class="btn btn-danger" @onclick="() => { simulatorManager.ResetGrid(); DeleteTaxis(); }">Reset</button>
 </div>
 
 <div class="grid-container">
     <div class="grid">
-        @for (int y = 0; y < 30; y++)
+        @for (int y = 0; y < Y; y++)
         {
             <div class="row">
-                @for (int x = 0; x < 30; x++)
+                @for (int x = 0; x < Y; x++)
                 {
                     <div class="cell @GetCellClass(x, y)" title="@($"Cell ({x}, {y})")">
                         @GetCellContent(x, y)
@@ -28,43 +31,32 @@
 </div>
 
 @code {
-    private char[,] grid = new char[50, 70];
-    private System.Threading.Timer? _timer;
+    public static int X { get; set; } = 30;
+    public static int Y { get; set; } = 30;
+    private char[,] grid = new char[Y, X];
+    
 
     protected override async Task OnInitializedAsync()
     {
-        // Subscribe to incoming messages
-        await RmqManager.ConsumeCloudEventMessage("visualizer", HandleCloudEventMessage);
-
         // Start a timer that triggers every 2 seconds to refresh the UI.
-        _timer = new System.Threading.Timer(async _ =>
+        _ = Task.Run(async () =>
         {
-            // Invoke StateHasChanged on the correct synchronization context
-            await InvokeAsync(StateHasChanged);
-        },
-        null, TimeSpan.Zero, TimeSpan.FromSeconds(2));
-    }
-
-    private async Task HandleCloudEventMessage(CloudEvent cloudEvent)
-    {
-        if (cloudEvent.Type == "passenger.location")
-        {
-            var passengerRequest = await RmqManager.DeserializeCloudEventMessage<PassengerRequest>(cloudEvent);
-            UpdateGrid(passengerRequest.Location, 'p');
-        }
-        if (cloudEvent.Type == "driver.location")
-        {
-            var driverRequest = await RmqManager.DeserializeCloudEventMessage<TaxiDto>(cloudEvent);
-            await UpdateGrid(driverRequest.Location, 'd');
-            Console.WriteLine($"Driver location: {driverRequest.Location}");
-        }
+            while (true)
+            {
+                // Invoke StateHasChanged on the correct synchronization context
+                grid = simulatorManager.GetGrid();
+                await InvokeAsync(StateHasChanged);
+                await Task.Delay(500);
+            }
+        });
+        // Subscribe to incoming messages
+        
 
     }
 
     private async Task UpdateGrid(Location location, char symbol)
     {
         grid[location.Y, location.X] = symbol;
-        await InvokeAsync(StateHasChanged);
     }
 
     private char GetCellContent(int x, int y)
@@ -82,6 +74,15 @@
         else
         {
             Console.WriteLine("Failed to create taxi.");
+        }
+    }
+
+    private async Task DeleteTaxis()
+    {
+        var response = await httpClient.DeleteAsync("http://driverservice:8080/taxis");
+        if (response.IsSuccessStatusCode)
+        {
+            Console.WriteLine("Taxis Deleted successfully.");
         }
     }
 
@@ -104,6 +105,7 @@
         {
             'd' => "driver",
             'p' => "passenger",
+            'P' => "desitination",
             _   => "empty"
         };
     }
@@ -111,7 +113,7 @@
     // Dispose of the timer when the component is disposed.
     public void Dispose()
     {
-        _timer?.Dispose();
+        httpClient?.Dispose();
     }
 }
 <style>
@@ -159,6 +161,12 @@
 
     .cell.driver {
         background-color: #4CAF50;
+        color: white;
+        border-color: #388E3C;
+    }
+    
+    .cell.desitination {
+        background-color: rgba(0, 0, 255, 0.5);
         color: white;
         border-color: #388E3C;
     }

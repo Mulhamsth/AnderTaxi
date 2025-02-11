@@ -54,7 +54,7 @@ public class TaxiManager : ITaxiManager
         {
             taxi.State = ETaxiState.Unavailable;
             var cts = _activeTaxis[pickupRequest.DriverId];
-            await taxi.PickupPassengerAsync(pickupRequest);
+            taxi.PickupPassengerAsync(pickupRequest);
         }
     }
 }
